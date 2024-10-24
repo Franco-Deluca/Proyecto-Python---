@@ -1,0 +1,188 @@
+import pandas as pd
+from textblob import TextBlob
+import os
+import tkinter as tk
+from tkinter import messagebox, simpledialog, ttk
+from datetime import datetime
+import matplotlib.pyplot as plt
+
+# Clase para gestionar los hábitos de comunicación
+class HabitoComunicacion:
+    def __init__(self, nombre, fecha, contenido):
+        self.nombre = nombre
+        self.fecha = fecha
+        self.contenido = contenido
+
+# Función para analizar el sentimiento del contenido
+def analizar_sentimiento(contenido):
+    analisis = TextBlob(contenido)
+    return analisis.sentiment.polarity
+
+# Función para cargar hábitos de un archivo CSV
+def cargar_habitos(archivo):
+    if not os.path.exists(archivo):
+        print(f"El archivo '{archivo}' no se encontró. Se creará uno nuevo.")
+        return []
+    
+    try:
+        df = pd.read_csv(archivo)
+        return [HabitoComunicacion(row['Nombre'], row['Fecha'], row['Contenido']) for index, row in df.iterrows()]
+    except Exception as e:
+        print(f"Error al cargar el archivo: {e}")
+        return []
+
+# Función para guardar hábitos en un archivo CSV
+def guardar_habitos(habitos, archivo):
+    data = {
+        'Nombre': [habito.nombre for habito in habitos],
+        'Fecha': [habito.fecha for habito in habitos],
+        'Contenido': [habito.contenido for habito in habitos]
+    }
+    df = pd.DataFrame(data)
+    df.to_csv(archivo, index=False)
+
+# Función para exportar hábitos a un archivo Excel
+def exportar_a_excel(habitos, archivo):
+    data = {
+        'Nombre': [habito.nombre for habito in habitos],
+        'Fecha': [habito.fecha for habito in habitos],
+        'Contenido': [habito.contenido for habito in habitos]
+    }
+    df = pd.DataFrame(data)
+    df.to_excel(archivo, index=False)
+
+# Función para agregar un nuevo hábito
+def agregar_habito(habitos):
+    nombre = simpledialog.askstring("Agregar Hábito", "Introduce tu nombre:")
+    fecha = simpledialog.askstring("Agregar Hábito", "Introduce la fecha (YYYY-MM-DD):")
+    contenido = simpledialog.askstring("Agregar Hábito", "Describe tu hábito de comunicación:")
+    
+    if nombre and fecha and contenido:
+        habito = HabitoComunicacion(nombre, fecha, contenido)
+        habitos.append(habito)
+        guardar_habitos(habitos, 'habitos_comunicacion.csv')  # Guardar automáticamente
+        messagebox.showinfo("Éxito", "Hábito agregado con éxito.")
+    else:
+        messagebox.showwarning("Advertencia", "Todos los campos son obligatorios.")
+
+# Función para mostrar todos los hábitos
+def mostrar_habitos(habitos):
+    if not habitos:
+        messagebox.showinfo("Información", "No hay hábitos registrados.")
+        return
+
+    resultado = ""
+    for habito in habitos:
+        sentimiento = analizar_sentimiento(habito.contenido)
+        resultado += f"Nombre: {habito.nombre}\nFecha: {habito.fecha}\nContenido: {habito.contenido}\nSentimiento: {sentimiento:.2f}\n\n"
+    
+    messagebox.showinfo("Hábitos Registrados", resultado)
+
+# Función para eliminar un hábito
+def eliminar_habito(habitos):
+    nombre = simpledialog.askstring("Eliminar Hábito", "Introduce el nombre del hábito a eliminar:")
+    habito_a_eliminar = [habito for habito in habitos if habito.nombre.lower() == nombre.lower()]
+    if habito_a_eliminar:
+        habitos.remove(habito_a_eliminar[0])
+        guardar_habitos(habitos, 'habitos_comunicacion.csv')  # Guardar automáticamente
+        messagebox.showinfo("Éxito", f"Hábito de '{nombre}' eliminado con éxito.")
+    else:
+        messagebox.showwarning("Advertencia", f"No se encontró ningún hábito para '{nombre}'.")
+
+# Función para editar un hábito
+def editar_habito(habitos):
+    nombre = simpledialog.askstring("Editar Hábito", "Introduce el nombre del hábito a editar:")
+    habito_a_editar = [habito for habito in habitos if habito.nombre.lower() == nombre.lower()]
+    
+    if habito_a_editar:
+        nuevo_nombre = simpledialog.askstring("Editar Hábito", "Introduce el nuevo nombre:", initialvalue=habito_a_editar[0].nombre)
+        nueva_fecha = simpledialog.askstring("Editar Hábito", "Introduce la nueva fecha (YYYY-MM-DD):", initialvalue=habito_a_editar[0].fecha)
+        nuevo_contenido = simpledialog.askstring("Editar Hábito", "Describe el nuevo hábito de comunicación:", initialvalue=habito_a_editar[0].contenido)
+
+        if nuevo_nombre and nueva_fecha and nuevo_contenido:
+            habito_a_editar[0].nombre = nuevo_nombre
+            habito_a_editar[0].fecha = nueva_fecha
+            habito_a_editar[0].contenido = nuevo_contenido
+            guardar_habitos(habitos, 'habitos_comunicacion.csv')  # Guardar automáticamente
+            messagebox.showinfo("Éxito", f"Hábito de '{nombre}' editado con éxito.")
+        else:
+            messagebox.showwarning("Advertencia", "Todos los campos son obligatorios.")
+    else:
+        messagebox.showwarning("Advertencia", f"No se encontró ningún hábito para '{nombre}'.")
+
+# Función para filtrar hábitos por fecha
+def filtrar_habitos(habitos):
+    fecha_str = simpledialog.askstring("Filtrar Hábitos", "Introduce la fecha (YYYY-MM-DD):")
+    try:
+        fecha = datetime.strptime(fecha_str, "%Y-%m-%d")
+        resultados_filtrados = [habito for habito in habitos if datetime.strptime(habito.fecha, "%Y-%m-%d") == fecha]
+        
+        if resultados_filtrados:
+            resultado = ""
+            for habito in resultados_filtrados:
+                sentimiento = analizar_sentimiento(habito.contenido)
+                resultado += f"Nombre: {habito.nombre}\nFecha: {habito.fecha}\nContenido: {habito.contenido}\nSentimiento: {sentimiento:.2f}\n\n"
+            messagebox.showinfo("Hábitos Filtrados", resultado)
+        else:
+            messagebox.showinfo("Información", "No se encontraron hábitos para esa fecha.")
+    except ValueError:
+        messagebox.showwarning("Advertencia", "Formato de fecha incorrecto. Usa YYYY-MM-DD.")
+
+# Función para generar gráficos de análisis
+def generar_grafico(habitos):
+    sentimientos = [analizar_sentimiento(habito.contenido) for habito in habitos]
+    nombres = [habito.nombre for habito in habitos]
+    
+    plt.figure(figsize=(10, 5))
+    plt.bar(nombres, sentimientos, color='skyblue')
+    plt.xlabel('Nombres')
+    plt.ylabel('Sentimiento')
+    plt.title('Análisis de Sentimiento de Hábitos de Comunicación')
+    plt.axhline(0, color='gray', linewidth=0.8)
+    plt.ylim(-1, 1)  # Limitar el eje Y para mostrar claramente los sentimientos
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
+
+# Función para crear la interfaz gráfica
+def crear_interfaz():
+    habitos = cargar_habitos('habitos_comunicacion.csv')
+
+    ventana = tk.Tk()
+    ventana.title("Gestor de Hábitos de Comunicación")
+    ventana.geometry("400x300")
+    
+    # Estilo para la ventana
+    estilo = ttk.Style()
+    estilo.configure('TButton', font=('Helvetica', 10))
+    estilo.configure('TLabel', font=('Helvetica', 12))
+
+    # Etiqueta de título
+    titulo = ttk.Label(ventana, text="Gestor de Hábitos de Comunicación", font=('Helvetica', 16, 'bold'))
+    titulo.pack(pady=10)
+
+    # Botones
+    frame_botones = ttk.Frame(ventana)
+    frame_botones.pack(pady=20)
+
+    btn_agregar = ttk.Button(frame_botones, text="Agregar Hábito", command=lambda: agregar_habito(habitos))
+    btn_mostrar = ttk.Button(frame_botones, text="Mostrar Hábitos", command=lambda: mostrar_habitos(habitos))
+    btn_eliminar = ttk.Button(frame_botones, text="Eliminar Hábito", command=lambda: eliminar_habito(habitos))
+    btn_editar = ttk.Button(frame_botones, text="Editar Hábito", command=lambda: editar_habito(habitos))
+    btn_filtrar = ttk.Button(frame_botones, text="Filtrar por Fecha", command=lambda: filtrar_habitos(habitos))
+    btn_exportar = ttk.Button(frame_botones, text="Exportar a Excel", command=lambda: exportar_a_excel(habitos, 'habitos_comunicacion.xlsx'))
+    btn_grafico = ttk.Button(frame_botones, text="Generar Gráfico", command=lambda: generar_grafico(habitos))
+
+    btn_agregar.grid(row=0, column=0, padx=5, pady=5)
+    btn_mostrar.grid(row=0, column=1, padx=5, pady=5)
+    btn_eliminar.grid(row=1, column=0, padx=5, pady=5)
+    btn_editar.grid(row=1, column=1, padx=5, pady=5)
+    btn_filtrar.grid(row=2, column=0, padx=5, pady=5)
+    btn_exportar.grid(row=2, column=1, padx=5, pady=5)
+    btn_grafico.grid(row=3, column=0, columnspan=2, padx=5, pady=10)
+
+    ventana.mainloop()
+
+# Ejecución de la interfaz
+if __name__ == "__main__":
+    crear_interfaz()
